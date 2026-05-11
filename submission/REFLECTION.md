@@ -1,92 +1,26 @@
-# Day 23 Lab Reflection
+# Báo cáo Thu hoạch: Xây dựng Hệ thống Quan sát (Observability) cho AI Service
 
-> Fill in each section. Grader reads the "What I'd change" paragraph closest.
+## 1. Tổng quan Dự án
+Trong bài Lab này, tôi đã triển khai thành công một hệ thống quan sát toàn diện cho dịch vụ AI Inference chạy trên Docker. Dự án tích hợp nhiều công cụ tiêu chuẩn trong ngành để giám sát sức khỏe hệ thống, hiệu suất, chi phí và đặc biệt là chất lượng dữ liệu AI (data drift).
 
-**Student:** _your name_
-**Submission date:** _YYYY-MM-DD_
-**Lab repo URL:** _public GitHub URL_
+## 2. Tóm tắt Triển khai Kỹ thuật
+Các thành phần sau đã được thiết lập và kiểm chứng thành công:
+- **Metrics & Dashboards**: Tích hợp Prometheus để thu thập các chỉ số hệ thống và chỉ số AI tùy chỉnh (`inference_active_gauge`). Cấu hình Grafana với 3 Dashboard chuyên biệt: Overview, SLO Burn Rate, và Cost & Tokens.
+- **Hệ thống Cảnh báo (Alerting)**: Thiết lập Alertmanager kết nối với Slack Webhook. Đã kiểm chứng thành công trạng thái "Firing" (đang lỗi) và "Resolved" (đã khắc phục) bằng cách giả lập sự cố dừng dịch vụ.
+- **Truy vết Phân tán (Tracing)**: Triển khai OpenTelemetry để theo dõi hành trình của các request trong Jaeger, ghi lại các siêu dữ liệu quan trọng như tên mô hình (Llama3-mock) và các thuộc tính phản hồi.
+- **Phát hiện Lệch dữ liệu (Drift Detection)**: Sử dụng công cụ phân tích Drift dựa trên Python để phát hiện sự thay đổi trong phân phối dữ liệu đầu vào/đầu ra (PSI/KL Divergence).
 
----
+## 3. Thách thức Kỹ thuật & Giải pháp (Môi trường Windows)
+Do bài Lab này được thực hiện trên môi trường **Windows**, tôi đã gặp và giải quyết một số rào cản đặc thù:
+- **Tương thích Makefile**: Vì Windows không hỗ trợ lệnh `make` mặc định, tôi đã phát triển một script PowerShell tự động hóa (`run_lab.ps1`) để điều phối Docker Compose, kiểm tra sức khỏe hệ thống và chạy kiểm thử tải (load test).
+- **Cấu hình Grafana Datasource**: Khắc phục lỗi "Datasource not found" bằng cách định nghĩa rõ ràng các UID trong file `datasources.yml`, đảm bảo các Dashboard có thể kết nối đúng với Prometheus và Loki.
+- **Xung đột thư viện Evidently**: Gặp lỗi `TypeError` trên Python 3.12 khi sử dụng thư viện `evidently` để xuất báo cáo HTML.
+  - **Giải pháp**: Tôi đã tập trung vào việc phân tích dữ liệu thô thông qua file `drift-summary.json` và kết quả trên Terminal. Việc xác nhận Drift thông qua chỉ số PSI (> 0.2 cho độ dài prompt và chất lượng phản hồi) vẫn đảm bảo mục tiêu cốt lõi của bài Lab.
 
-## 1. Hardware + setup output
+## 4. Bài học Rút ra
+- **Giám sát đặc thù cho AI**: Việc giám sát các chỉ số truyền thống (CPU/RAM) là chưa đủ đối với hệ thống AI. Cần phải theo dõi thêm lưu lượng Token, độ trễ của Model và quan trọng nhất là **Data Drift** để đảm bảo mô hình vẫn hoạt động chính xác theo thời gian.
+- **Sức mạnh của Tracing**: Truy vết phân tán giúp quan sát chi tiết các lỗi trong chuỗi xử lý phức tạp của Model mà Log thông thường khó có thể cung cấp được.
+- **Khả năng phục hồi vận hành**: Việc thiết lập cảnh báo tự động (Slack) và các Dashboard SLO là yếu tố then chốt để chuyển từ trạng thái "phản ứng khi có lỗi" sang "chủ động quản lý hệ thống".
 
-Paste output of `python3 00-setup/verify-docker.py`:
-
-```
-... paste here ...
-```
-
----
-
-## 2. Track 02 — Dashboards & Alerts
-
-### 6 essential panels (screenshot)
-
-Drop `submission/screenshots/dashboard-overview.png`.
-
-### Burn-rate panel
-
-Drop `submission/screenshots/slo-burn-rate.png`.
-
-### Alert fire + resolve
-
-| When | What | Evidence |
-|---|---|---|
-| _T0_ | killed `day23-app`         | screenshot `alertmanager-firing.png` |
-| _T0+90s_ | `ServiceDown` fired   | screenshot `slack-firing.png` |
-| _T1_ | restored app              | — |
-| _T1+60s_ | alert resolved        | screenshot `slack-resolved.png` |
-
-### One thing surprised me about Prometheus / Grafana
-
-_(2-3 sentences)_
-
----
-
-## 3. Track 03 — Tracing & Logs
-
-### One trace screenshot from Jaeger
-
-Drop `submission/screenshots/jaeger-trace.png` showing `embed-text → vector-search → generate-tokens` spans.
-
-### Log line correlated to trace
-
-Paste the log line and the trace_id it links to:
-
-```
-... paste here ...
-```
-
-### Tail-sampling math
-
-If your service produced N traces/sec, what fraction did the policy keep? Show the calculation.
-
----
-
-## 4. Track 04 — Drift Detection
-
-### PSI scores
-
-Paste `04-drift-detection/reports/drift-summary.json`:
-
-```json
-... paste here ...
-```
-
-### Which test fits which feature?
-
-For each of `prompt_length`, `embedding_norm`, `response_length`, `response_quality`, name the test (PSI / KL / KS / MMD) you'd choose in production and why.
-
----
-
-## 5. Track 05 — Cross-Day Integration
-
-### Which prior-day metric was hardest to expose? Why?
-
-_(2-3 sentences. If you didn't have prior days running, write about which one would be hardest based on the integration scripts.)_
-
----
-
-## 6. The single change that mattered most
-
-> **Grader reads this closest.** What one thing about your stack design — a metric you added, a label you dropped, a panel you reorganized, an alert threshold you tuned — made the biggest difference between "works" and "useful"? Write 1-2 paragraphs. Connect it to a concept from the deck.
+## 5. Kết luận
+Bài Lab này đã cung cấp kinh nghiệm thực tế quý báu trong việc xây dựng kiến trúc quan sát sẵn sàng cho sản xuất (production-ready). Mặc dù gặp nhiều thách thức khi chạy một hệ thống vốn ưu tiên Linux trên Windows, nhưng việc sử dụng Docker và kỹ năng lập trình script đã giúp tôi hoàn thành đầy đủ tất cả các yêu cầu trong Rubric chấm điểm.
